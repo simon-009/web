@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Boludle Diario</title>
+
+<style>
+body { background:#121213; color:white; font-family:Arial; text-align:center; }
+
+.grid { display:grid; grid-template-rows:repeat(6,1fr); gap:5px; width:300px; margin:20px auto; }
+.row { display:grid; grid-template-columns:repeat(5,1fr); gap:5px; }
+
+.tile { border:2px solid #3a3a3c; height:60px; line-height:60px; font-size:2em; font-weight:bold; }
+
+.flip { animation:flip .6s ease; }
+@keyframes flip {
+0%{transform:rotateX(0)}
+50%{transform:rotateX(90deg)}
+100%{transform:rotateX(0)}
+}
+
+.correct{background:#2b9c21;}
+.present{background:#d4b732;}
+.absent{background:#3a3a3c;}
+
+.key{display:inline-block;margin:3px;padding:10px;background:#818384;border-radius:4px;cursor:pointer;}
+
+#endBox{
+display:none;
+background:#222;
+padding:20px;
+margin-top:20px;
+border-radius:10px;
+animation:fadeIn 0.8s ease;
+}
+
+/* ✨ RANGO */
+.rank {
+display:inline-block;
+font-size:1.6em;
+margin-top:10px;
+animation:pop 0.6s ease, glow 1.5s infinite alternate;
+}
+
+@keyframes pop {
+0% { transform:scale(0); }
+80% { transform:scale(1.2); }
+100% { transform:scale(1); }
+}
+
+@keyframes glow {
+from { text-shadow: 0 0 5px #fff; }
+to { text-shadow: 0 0 20px #ffd700; }
+}
+
+/* 🎉 aparición */
+@keyframes fadeIn {
+from { opacity:0; transform:translateY(20px);}
+to { opacity:1; transform:translateY(0);}
+}
+
+/* 💥 victoria flash */
+@keyframes flash {
+0% { background:#121213; }
+50% { background:#2b9c21; }
+100% { background:#121213; }
+}
+</style>
+</head>
+
+<body>
+
+<h1>BOLUDLE 🇦🇷</h1>
+
+<div id="game">
+<div class="grid" id="grid"></div>
+<div id="keyboard"></div>
+</div>
+
+<div id="endBox"></div>
+
+<script src="diccionario.js"></script>
+
+<script>
+
+// 📚 RESPUESTAS (reales)
+const answers = [
+"AMIGO","PERRO","GATOS","CASAS","ARBOL","PLATA","CURRO","TRUCO","CHETO","PIOLA"
+];
+
+
+
+
+// 📅 palabra diaria
+function getDailyWord() {
+    const today = new Date().toDateString();
+    let sum = 0;
+    for (let i = 0; i < today.length; i++) sum += today.charCodeAt(i);
+    return answers[sum % answers.length];
+}
+
+const today = new Date().toDateString();
+const word = getDailyWord();
+
+// 💾 estado guardado
+let save = JSON.parse(localStorage.getItem("boludleGame")) || {
+    date: today,
+    guesses: [],
+    finished: false
+};
+
+if (save.date !== today) {
+    save = { date: today, guesses: [], finished: false };
+}
+
+// 📊 stats
+let stats = JSON.parse(localStorage.getItem("boludleStats")) || {
+    wins:0, played:0, streak:0
+};
+
+// 🧱 grid
+const grid = document.getElementById("grid");
+for (let i = 0; i < 6; i++) {
+    const row = document.createElement("div");
+    row.className = "row";
+    for (let j = 0; j < 5; j++) {
+        const tile = document.createElement("div");
+        tile.className = "tile";
+        row.appendChild(tile);
+    }
+    grid.appendChild(row);
+}
+
+// ⌨️ teclado 3 filas
+const keyboard = document.getElementById("keyboard");
+["QWERTYUIOP","ASDFGHJKLÑ","ZXCVBNM"].forEach(r=>{
+    const div=document.createElement("div");
+    r.split("").forEach(l=>{
+        const k=document.createElement("div");
+        k.className="key";
+        k.textContent=l;
+        k.onclick=()=>handleKey(l);
+        div.appendChild(k);
+    });
+    keyboard.appendChild(div);
+});
+
+let currentRow = save.guesses.length;
+let currentTile = 0;
+let guess = "";
+
+// 🔁 restaurar partida
+save.guesses.forEach((g, rowIndex) => {
+    const row = grid.children[rowIndex];
+    for (let i = 0; i < 5; i++) {
+        row.children[i].textContent = g[i];
+
+        if (word[i] === g[i]) row.children[i].classList.add("correct");
+        else if (word.includes(g[i])) row.children[i].classList.add("present");
+        else row.children[i].classList .add("absent");
+    }
+});
+
+// input
+function handleKey(letter) {
+    if (save.finished) return;
+    if (currentTile < 5) {
+        grid.children[currentRow].children[currentTile].textContent = letter;
+        guess += letter;
+        currentTile++;
+    }
+}
+
+document.addEventListener("keydown", e=>{
+    if (e.key==="Enter") submitGuess();
+    else if (e.key==="Backspace") deleteLetter();
+    else if (/^[a-zñ]$/i.test(e.key)) handleKey(e.key.toUpperCase());
+});
+
+function deleteLetter() {
+    if (currentTile>0){
+        currentTile--;
+        guess=guess.slice(0,-1);
+        grid.children[currentRow].children[currentTile].textContent="";
+    }
+}
+
+// 🎯 intento con VALIDACIÓN REAL
+function submitGuess() {
+    if (guess.length!==5) return;
+
+    if (!dictionary.includes(guess)) {
+        alert("Esa palabra no existe capo 🤨");
+        return;
+    }
+
+    save.guesses.push(guess);
+    localStorage.setItem("boludleGame", JSON.stringify(save));
+
+    const row = grid.children[currentRow];
+
+    for (let i=0;i<5;i++){
+        const tile=row.children[i];
+        const l=guess[i];
+
+        setTimeout(()=>{
+            tile.classList.add("flip");
+            setTimeout(()=>{
+                if(word[i]===l) tile.classList.add("correct");
+                else if(word.includes(l)) tile.classList.add("present");
+                else tile.classList.add("absent");
+            },300);
+        }, i*300);
+    }
+
+    setTimeout(()=>{
+        if (guess===word) {
+            stats.wins++; stats.streak++;
+            endGame(true);
+            return;
+        }
+
+        currentRow++;
+        currentTile=0;
+        guess="";
+
+        if (currentRow===6) endGame(false);
+    },1800);
+}
+
+// 🏁 fin del juego
+function endGame(win){
+    save.finished=true;
+    localStorage.setItem("boludleGame", JSON.stringify(save));
+
+    stats.played++;
+    if(!win) stats.streak=0;
+    localStorage.setItem("boludleStats", JSON.stringify(stats));
+
+    // 🎉 animación de victoria
+    if (win) {
+        document.body.style.animation = "flash 0.5s";
+        setTimeout(()=>document.body.style.animation="",500);
+    }
+
+    // 🏆 RANGOS
+    let rango = "Sin rango";
+
+    if (stats.wins >= 5) rango = "🥔 Puré de Papas";
+    if (stats.wins >= 10) rango = "🔥 Maestro del Asado";
+    if (stats.wins >= 20) rango = "👑 Dios del Boludle";
+
+    showEnd(
+        (win?"Ganaste 😎":"Perdiste 😭")+
+        "<br>Era: "+word+
+        "<br><br>Wins: "+stats.wins+
+        "<br>Racha: "+stats.streak+
+        "<br><br><span class='rank'>"+rango+"</span>"+
+        "<br><br>Volvé mañana 👀"
+    );
+}
