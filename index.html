@@ -47,21 +47,37 @@ justify-content:center;
 .present{background:#b59f3b;}
 .absent{background:#3a3a3c;}
 
-.key{
-display:inline-block;
-margin:3px;
-padding:14px;
+#keyboard {
+max-width:500px;
+margin:0 auto;
+}
+
+.keyrow {
+display:flex;
+justify-content:center;
+margin-bottom:5px;
+}
+
+.key {
+flex:1;
+margin:2px;
+padding:14px 0;
 background:#818384;
 border-radius:5px;
 cursor:pointer;
 font-size:16px;
+text-align:center;
+
+/* 🔥 esto arregla la selección */
+user-select:none;
+-webkit-user-select:none;
+touch-action:manipulation;
 }
 
-.bigkey{
-padding:14px 18px;
-font-size:14px;
+.bigkey {
+flex:1.5;
 background:#565758;
-}
+}   
 
 @media (max-width:500px){
 .key{padding:12px;font-size:15px;}
@@ -76,7 +92,7 @@ background:#565758;
 
 <div class="topbar">
 <button onclick="openRanking()">🏆 Ranking</button>
-<button onclick="window.open('https://cafecito.app/', '_blank')">☕ Cafecito</button>
+<button onclick="window.open('https://cafecito.app/medialuna09')">☕ Cafecito</button>
 </div>
 
 <h1>BOLUDLE 🇦🇷</h1>
@@ -148,6 +164,7 @@ const layout = [
 
 layout.forEach(row=>{
 const div=document.createElement("div");
+div.className = "keyrow"; // 👈 IMPORTANTE
 
 row.forEach(key=>{
 const k=document.createElement("div");
