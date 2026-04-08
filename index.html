@@ -6,7 +6,14 @@
 <title>Boludle Diario</title>
 
 <style>
-body { background:#121213; color:white; font-family:Arial; text-align:center; margin:0; }
+body {
+background:#121213;
+color:white;
+font-family:Arial;
+text-align:center;
+margin:0;
+touch-action: manipulation;
+}
 
 .topbar {
 display:flex;
@@ -14,6 +21,7 @@ justify-content:space-between;
 padding:10px;
 }
 
+/* GRID */
 .grid {
 display:grid;
 grid-template-rows:repeat(6,1fr);
@@ -23,7 +31,11 @@ max-width:350px;
 margin:20px auto;
 }
 
-.row { display:grid; grid-template-columns:repeat(5,1fr); gap:5px; }
+.row {
+display:grid;
+grid-template-columns:repeat(5,1fr);
+gap:5px;
+}
 
 .tile {
 border:2px solid #3a3a3c;
@@ -35,6 +47,7 @@ align-items:center;
 justify-content:center;
 }
 
+/* ANIMACION */
 .flip { animation:flip .6s ease; }
 
 @keyframes flip {
@@ -47,30 +60,45 @@ justify-content:center;
 .present{background:#b59f3b;}
 .absent{background:#3a3a3c;}
 
-body {
-touch-action: manipulation;
+/* TECLADO */
+#keyboard {
+max-width:500px;
+margin:10px auto;
 }
 
-.key{
-display:inline-block;
-margin:3px;
-padding:14px;
+.keyrow {
+display:flex;
+justify-content:center;
+gap:5px;
+margin-bottom:6px;
+}
+
+.key {
+flex:1;
+min-width:0;
+padding:14px 0;
 background:#818384;
 border-radius:5px;
 cursor:pointer;
-font-size:16px;
+font-size:clamp(14px, 3.5vw, 18px);
+text-align:center;
+
+user-select:none;
+-webkit-user-select:none;
+touch-action:manipulation;
 }
 
-.bigkey{
-padding:14px 18px;
-font-size:14px;
+.bigkey {
+flex:1.5;
+font-size:12px;
 background:#565758;
 }
 
-@media (max-width:500px){
-.key{padding:12px;font-size:15px;}
+.key:active {
+transform:scale(0.95);
 }
 
+/* BOXES */
 #endBox{display:none;background:#222;padding:20px;margin-top:20px;}
 #rankingBox{display:none;padding:20px;}
 </style>
@@ -97,6 +125,9 @@ background:#565758;
 
 <script>
 
+// evitar zoom hardcore
+document.addEventListener('gesturestart', e => e.preventDefault());
+
 // 📅 día
 const startDate = new Date("2024-01-01");
 const todayDate = new Date();
@@ -106,7 +137,7 @@ const dayNumber = Math.floor((todayDate - startDate)/(1000*60*60*24));
 const answers = ["AMIGO","PERRO","GATOS","CASAS","ARBOL","PLATA","CURRO","TRUCO","CHETO","PIOLA"];
 
 function getDailyWord() {
-    return answers[dayNumber % answers.length];
+return answers[dayNumber % answers.length];
 }
 
 const today = todayDate.toDateString();
@@ -114,44 +145,48 @@ const word = getDailyWord();
 
 // guardado
 let save = JSON.parse(localStorage.getItem("boludleGame")) || {
-    date: today,
-    guesses: [],
-    finished: false
+date: today,
+guesses: [],
+finished: false
 };
 
 if (save.date !== today) {
-    save = { date: today, guesses: [], finished: false };
+save = { date: today, guesses: [], finished: false };
 }
 
 // stats
 let stats = JSON.parse(localStorage.getItem("boludleStats")) || {
-    wins:0, played:0, streak:0
+wins:0, played:0, streak:0
 };
 
-// grid
+// GRID
 const grid = document.getElementById("grid");
+
 for (let i = 0; i < 6; i++) {
-    const row = document.createElement("div");
-    row.className = "row";
-    for (let j = 0; j < 5; j++) {
-        const tile = document.createElement("div");
-        tile.className = "tile";
-        row.appendChild(tile);
-    }
-    grid.appendChild(row);
+const row = document.createElement("div");
+row.className = "row";
+
+for (let j = 0; j < 5; j++) {
+const tile = document.createElement("div");
+tile.className = "tile";
+row.appendChild(tile);
 }
 
-// teclado (con ENTER y BORRAR)
+grid.appendChild(row);
+}
+
+// TECLADO PERFECTO
 const keyboard = document.getElementById("keyboard");
 
 const layout = [
-["ENTER","Q","W","E","R","T","Y","U","I","O","P"],
+["Q","W","E","R","T","Y","U","I","O","P"],
 ["A","S","D","F","G","H","J","K","L","Ñ"],
-["⌫","Z","X","C","V","B","N","M"]
+["ENTER","Z","X","C","V","B","N","M","⌫"]
 ];
 
 layout.forEach(row=>{
 const div=document.createElement("div");
+div.className="keyrow";
 
 row.forEach(key=>{
 const k=document.createElement("div");
@@ -182,6 +217,7 @@ let guess = "";
 // restaurar
 save.guesses.forEach((g, rowIndex) => {
 const row = grid.children[rowIndex];
+
 for (let i = 0; i < 5; i++) {
 row.children[i].textContent = g[i];
 
@@ -191,9 +227,10 @@ else row.children[i].classList.add("absent");
 }
 });
 
-// input
+// INPUT
 function handleKey(letter) {
 if (save.finished) return;
+
 if (currentTile < 5) {
 const tile = grid.children[currentRow].children[currentTile];
 tile.textContent = letter;
