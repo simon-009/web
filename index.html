@@ -12,19 +12,7 @@ color:white;
 font-family:Arial;
 text-align:center;
 margin:0;
-touch-action: manipulation;
 }
-
-button {
-background:none;
-border:none;
-color:white;
-font-size:16px;
-cursor:pointer;
-padding:5px 10px;
-}
-button:hover { opacity:0.7; }
-button:active { transform:scale(0.95); }
 
 .topbar {
 display:flex;
@@ -32,13 +20,19 @@ justify-content:space-between;
 padding:10px;
 }
 
+button {
+background:none;
+border:none;
+color:white;
+cursor:pointer;
+}
+
 .grid {
 display:grid;
-grid-template-rows:repeat(6,1fr);
 gap:5px;
-width:90vw;
-max-width:350px;
-margin:20px auto;
+width:85vw;
+max-width:320px;
+margin:40px auto;
 }
 
 .row {
@@ -49,84 +43,59 @@ gap:5px;
 
 .tile {
 border:2px solid #3a3a3c;
-aspect-ratio:1/1;
-font-size:clamp(22px, 5vw, 32px);
-font-weight:bold;
+aspect-ratio:1;
 display:flex;
 align-items:center;
 justify-content:center;
+font-size:clamp(22px,5vw,32px);
+cursor:pointer;
 }
 
-.flip { animation:flip .6s ease; }
-
-@keyframes flip {
-0%{transform:rotateX(0)}
-50%{transform:rotateX(90deg)}
-100%{transform:rotateX(0)}
+.tile.active {
+border:2px solid white;
 }
 
 .correct{background:#538d4e;}
 .present{background:#b59f3b;}
 .absent{background:#3a3a3c;}
 
-#keyboard {
-max-width:500px;
-margin:10px auto;
-}
+#keyboard { max-width:480px; margin:auto; }
 
 .keyrow {
 display:flex;
-justify-content:center;
 gap:5px;
 margin-bottom:6px;
 }
 
 .key {
 flex:1;
-min-width:0;
-padding:14px 0;
+padding:12px 0;
 background:#818384;
 border-radius:5px;
-cursor:pointer;
-font-size:clamp(14px, 3.5vw, 18px);
-text-align:center;
-
 user-select:none;
--webkit-user-select:none;
-touch-action:manipulation;
+text-align:center;
 }
 
-.bigkey {
-flex:1.5;
-font-size:12px;
-background:#565758;
-}
+.bigkey { flex:1.5; }
 
-.key.absent {
-background:#3a3a3c;
-}
+.key.absent { background:#3a3a3c; }
 
-.key:active {
-transform:scale(0.95);
-}
-
-#endBox{display:none;background:#222;padding:20px;margin-top:20px;}
-#rankingBox{display:none;padding:20px;}
+#endBox,#rankingBox{display:none;padding:20px;}
 </style>
 </head>
 
 <body>
 
 <div class="topbar">
-<button onclick="openRanking()">🏆 Ranking</button>
-<button onclick="changeName()">👤 Nombre</button>
-<button onclick="window.open('https://cafecito.app/', '_blank')">☕ Cafecito</button>
+<button onclick="openRanking()">🏆</button>
+<span id="nameButton"></span>
+<button onclick="window.open('https://cafecito.app/')">☕</button>
 </div>
 
 <h1>BOLUDLE 🇦🇷</h1>
 
 <div id="game">
-<div class="grid" id="grid"></div>
+<div id="grid" class="grid"></div>
 <div id="keyboard"></div>
 </div>
 
@@ -137,302 +106,258 @@ transform:scale(0.95);
 
 <script>
 
-// bloquear zoom
-document.addEventListener('gesturestart', e => e.preventDefault());
+// 👤 nombre único + reset
+function getUniqueName(){
+let ranking=JSON.parse(localStorage.getItem("ranking"))||[];
+let name;
+while(true){
+name=prompt("Nombre:");
+if(!name) name="Jugador";
+if(!ranking.some(p=>p.name.toLowerCase()===name.toLowerCase())) break;
+alert("Nombre en uso");
+}
+return name;
+}
 
-// 👤 jugador persistente
-let playerName = localStorage.getItem("boludlePlayer");
+let playerName=localStorage.getItem("player");
+let nameDate=localStorage.getItem("nameDate");
+const now=Date.now();
+const fiveDays=5*86400000;
 
 if(!playerName){
-    playerName = prompt("Elegí tu nombre:");
-    if(!playerName) playerName = "Jugador";
-    localStorage.setItem("boludlePlayer", playerName);
+playerName=getUniqueName();
+localStorage.setItem("player",playerName);
+localStorage.setItem("nameDate",now);
 }
 
-// 📅 día
-const startDate = new Date("2024-01-01");
-const todayDate = new Date();
-const dayNumber = Math.floor((todayDate - startDate)/(1000*60*60*24));
+function updateNameButton(){
+const el=document.getElementById("nameButton");
+
+if(now - nameDate > fiveDays){
+el.innerHTML=`<button onclick="changeName()">🔁 Nombre</button>`;
+}else{
+el.innerHTML=`👤 ${playerName}`;
+}
+}
+updateNameButton();
+
+function changeName(){
+const newName=getUniqueName();
+localStorage.setItem("player",newName);
+localStorage.setItem("nameDate",Date.now());
+location.reload();
+}
+
+// 🕛 día
+function getDay(){
+const start=new Date(2024,0,1);
+const t=new Date();
+const d=new Date(t.getFullYear(),t.getMonth(),t.getDate());
+return Math.floor((d-start)/86400000);
+}
+const day=getDay();
 
 // palabras
-const answers = ["AMIGO","PERRO","GATOS","CASAS","ARBOL","PLATA","CURRO","TRUCO","CHETO","PIOLA"];
-
-function getDailyWord() {
-return answers[dayNumber % answers.length];
-}
-
-const today = todayDate.toDateString();
-const word = getDailyWord();
+const answers=["AMIGO","PERRO","GATOS","CASAS","ARBOL","PLATA","CURRO","TRUCO","CHETO","PIOLA"];
+const word=answers[day%answers.length];
 
 // guardado
-let save = JSON.parse(localStorage.getItem("boludleGame")) || {
-date: today,
-guesses: [],
-finished: false
+let save=JSON.parse(localStorage.getItem("game"))||{
+date:day,guesses:[],finished:false,keys:{}
 };
 
-if (save.date !== today) {
-save = { date: today, guesses: [], finished: false };
+if(save.date!==day){
+save={date:day,guesses:[],finished:false,keys:{}};
 }
-
-// stats
-let stats = JSON.parse(localStorage.getItem("boludleStats")) || {
-wins:0, played:0, streak:0
-};
 
 // GRID
-const grid = document.getElementById("grid");
+const grid=document.getElementById("grid");
 
-for (let i = 0; i < 6; i++) {
-const row = document.createElement("div");
-row.className = "row";
+for(let i=0;i<6;i++){
+let row=document.createElement("div");
+row.className="row";
 
-for (let j = 0; j < 5; j++) {
-const tile = document.createElement("div");
-tile.className = "tile";
-row.appendChild(tile);
+for(let j=0;j<5;j++){
+let t=document.createElement("div");
+t.className="tile";
+
+t.onclick=()=>{
+currentRow=i;
+currentTile=j;
+updateActive();
+};
+
+row.appendChild(t);
 }
-
 grid.appendChild(row);
 }
 
-// TECLADO
-const keyboard = document.getElementById("keyboard");
-const keyMap = {};
+let currentRow=save.guesses.length;
+let currentTile=0;
+let guess="";
 
-const layout = [
+// activo
+function updateActive(){
+document.querySelectorAll(".tile").forEach(t=>t.classList.remove("active"));
+grid.children[currentRow].children[currentTile].classList.add("active");
+}
+updateActive();
+
+// teclado
+const keyboard=document.getElementById("keyboard");
+const keyMap={};
+
+const layout=[
 ["Q","W","E","R","T","Y","U","I","O","P"],
 ["A","S","D","F","G","H","J","K","L","Ñ"],
 ["ENTER","Z","X","C","V","B","N","M","⌫"]
 ];
 
-layout.forEach(row=>{
-const div=document.createElement("div");
-div.className="keyrow";
+layout.forEach(r=>{
+let row=document.createElement("div");
+row.className="keyrow";
 
-row.forEach(key=>{
-const k=document.createElement("div");
-k.textContent=key;
+r.forEach(k=>{
+let key=document.createElement("div");
+key.textContent=k;
 
-if(key==="ENTER" || key==="⌫"){
-k.className="key bigkey";
-} else {
-k.className="key";
-keyMap[key] = k;
+if(k==="ENTER"||k==="⌫"){
+key.className="key bigkey";
+}else{
+key.className="key";
+keyMap[k]=key;
 }
 
-k.onclick=()=>{
-if(key==="ENTER") submitGuess();
-else if(key==="⌫") deleteLetter();
-else handleKey(key);
+key.onclick=()=>{
+if(k==="ENTER") submit();
+else if(k==="⌫") del();
+else type(k);
 };
 
-div.appendChild(k);
+row.appendChild(key);
 });
 
-keyboard.appendChild(div);
+keyboard.appendChild(row);
 });
 
-let currentRow = save.guesses.length;
-let currentTile = 0;
-let guess = "";
-
-// restaurar
-save.guesses.forEach((g, rowIndex) => {
-const row = grid.children[rowIndex];
-
-for (let i = 0; i < 5; i++) {
-row.children[i].textContent = g[i];
-
-if (word[i] === g[i]) row.children[i].classList.add("correct");
-else if (word.includes(g[i])) row.children[i].classList.add("present");
-else row.children[i].classList.add("absent");
-}
+// restaurar teclado
+Object.keys(save.keys).forEach(k=>{
+keyMap[k]?.classList.add(save.keys[k]);
 });
 
-// INPUT
-function handleKey(letter) {
-if (save.finished) return;
+// escribir
+function type(l){
+if(save.finished) return;
 
-if (currentTile < 5) {
-const tile = grid.children[currentRow].children[currentTile];
-tile.textContent = letter;
-guess += letter;
-currentTile++;
-}
+const row=grid.children[currentRow];
+
+row.children[currentTile].textContent=l;
+
+// reconstruir
+guess="";
+for(let i=0;i<5;i++){
+guess+=row.children[i].textContent||"";
 }
 
-document.addEventListener("keydown", e=>{
-if (e.key==="Enter") submitGuess();
-else if (e.key==="Backspace") deleteLetter();
-else if (/^[a-zñ]$/i.test(e.key)) handleKey(e.key.toUpperCase());
-});
+if(currentTile<4) currentTile++;
+updateActive();
+}
 
-function deleteLetter() {
-if (currentTile>0){
+// borrar
+function del(){
+if(save.finished) return;
+
+const row=grid.children[currentRow];
+
+if(!row.children[currentTile].textContent && currentTile>0){
 currentTile--;
-guess=guess.slice(0,-1);
-grid.children[currentRow].children[currentTile].textContent="";
-}
 }
 
-// intento
-function submitGuess() {
-if (guess.length!==5) return;
+row.children[currentTile].textContent="";
 
-if (!dictionary.includes(guess)) {
-alert("Esa palabra no existe capo 🤨");
-return;
+guess="";
+for(let i=0;i<5;i++){
+guess+=row.children[i].textContent||"";
 }
+
+updateActive();
+}
+
+// teclado físico
+document.addEventListener("keydown",e=>{
+if(e.key==="Enter") submit();
+else if(e.key==="Backspace") del();
+else if(/^[a-zñ]$/i.test(e.key)) type(e.key.toUpperCase());
+});
+
+// submit
+function submit(){
+if(guess.length!==5) return;
+if(!dictionary.includes(guess)) return alert("No existe");
 
 save.guesses.push(guess);
-localStorage.setItem("boludleGame", JSON.stringify(save));
 
-const row = grid.children[currentRow];
+for(let i=0;i<5;i++){
+let l=guess[i];
+let tile=grid.children[currentRow].children[i];
 
-for (let i=0;i<5;i++){
-const tile=row.children[i];
-const l=guess[i];
-
-setTimeout(()=>{
-tile.classList.add("flip");
-
-setTimeout(()=>{
-if(word[i]===l){
-tile.classList.add("correct");
-}
-else if(word.includes(l)){
-tile.classList.add("present");
-}
+if(word[i]===l) tile.classList.add("correct");
+else if(word.includes(l)) tile.classList.add("present");
 else{
 tile.classList.add("absent");
-updateKeyAbsent(l);
+keyMap[l]?.classList.add("absent");
+save.keys[l]="absent";
 }
-},300);
-
-}, i*300);
 }
 
-setTimeout(()=>{
-if (guess===word) {
-stats.wins++; stats.streak++;
-endGame(true);
-return;
-}
+localStorage.setItem("game",JSON.stringify(save));
+
+if(guess===word) return end(true);
 
 currentRow++;
 currentTile=0;
 guess="";
 
-if (currentRow===6) endGame(false);
-
-},1800);
-}
-
-// teclado gris
-function updateKeyAbsent(letter){
-const key = keyMap[letter];
-if(!key) return;
-
-if(key.classList.contains("used")) return;
-
-key.classList.add("absent","used");
-}
-
-// compartir
-function shareResult(){
-let text = `Boludle #${dayNumber}\n`;
-
-save.guesses.forEach(g=>{
-for(let i=0;i<5;i++){
-if(word[i]===g[i]) text+="🟩";
-else if(word.includes(g[i])) text+="🟨";
-else text+="⬛";
-}
-text+="\n";
-});
-
-if(navigator.share){
-navigator.share({text});
-}else{
-navigator.clipboard.writeText(text);
-alert("Resultado copiado 😎");
-}
+if(currentRow===6) end(false);
+updateActive();
 }
 
 // ranking
 function saveScore(){
-let ranking = JSON.parse(localStorage.getItem("ranking")) || [];
-
-let existing = ranking.find(p => p.name === playerName);
-
-if(existing){
-existing.score = stats.wins;
-} else {
-ranking.push({name: playerName, score: stats.wins});
-}
-
-ranking.sort((a,b)=>b.score-a.score);
-
-localStorage.setItem("ranking", JSON.stringify(ranking));
+let r=JSON.parse(localStorage.getItem("ranking"))||[];
+let p=r.find(x=>x.name===playerName);
+if(p) p.score++;
+else r.push({name:playerName,score:1});
+r.sort((a,b)=>b.score-a.score);
+localStorage.setItem("ranking",JSON.stringify(r));
 }
 
 function openRanking(){
 document.getElementById("game").style.display="none";
-const box=document.getElementById("rankingBox");
-box.style.display="block";
-
-let ranking = JSON.parse(localStorage.getItem("ranking")) || [];
+let r=JSON.parse(localStorage.getItem("ranking"))||[];
 
 let html="<h2>🏆 Ranking</h2>";
-ranking.slice(0,10).forEach((p,i)=>{
+r.slice(0,10).forEach((p,i)=>{
 html+=`${i+1}. ${p.name} - ${p.score}<br>`;
 });
 
 html+="<br><button onclick='location.reload()'>Volver</button>";
 
-box.innerHTML=html;
-}
-
-// cambiar nombre
-function changeName(){
-let newName = prompt("Nuevo nombre:");
-if(newName){
-localStorage.setItem("boludlePlayer", newName);
-location.reload();
-}
+document.getElementById("rankingBox").style.display="block";
+document.getElementById("rankingBox").innerHTML=html;
 }
 
 // fin
-function endGame(win){
+function end(win){
 save.finished=true;
-localStorage.setItem("boludleGame", JSON.stringify(save));
-
-stats.played++;
-if(!win) stats.streak=0;
-
-localStorage.setItem("boludleStats", JSON.stringify(stats));
+localStorage.setItem("game",JSON.stringify(save));
 
 if(win) saveScore();
 
-showEnd(
-(win?"Ganaste 😎":"Perdiste 😭")+
-"<br>Era: "+word+
-"<br>Jugador: "+playerName+
-`<br><br><button onclick="shareResult()">Compartir</button>`+
-"<br><br>Volvé mañana 👀"
-);
-}
-
-function showEnd(text){
 document.getElementById("game").style.display="none";
-const box=document.getElementById("endBox");
-box.style.display="block";
-box.innerHTML=text;
-}
-
-if (save.finished) {
-showEnd("Ya jugaste hoy 😎<br>Volvé mañana");
+document.getElementById("endBox").style.display="block";
+document.getElementById("endBox").innerHTML=
+(win?"Ganaste 😎":"Perdiste 😭")+"<br>"+word;
 }
 
 </script>
